@@ -788,10 +788,6 @@ button.tile:active {
   text-transform: uppercase;
   color: var(--gold-soft);
 }
-.reward-label {
-  margin: 0 0 4px;
-  font-weight: 600;
-}
 .reward-text {
   margin: 0;
   font-family: var(--font-display);

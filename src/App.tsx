@@ -3,6 +3,8 @@ import { settings, type Mode } from './content/settings'
 import { Calendar } from './components/Calendar'
 import { DayView } from './components/DayView'
 import { DevPanel } from './components/DevPanel'
+import { getDay } from './content/days'
+import { contentKey } from './games/registry'
 import { Landing } from './components/Landing'
 import { loadMode, saveMode } from './lib/session'
 import { loadDevSettings, saveDevSettings, type DevSettings } from './lib/storage'
@@ -45,7 +47,7 @@ function CalendarApp({ mode, onExit }: { mode: Mode; onExit: () => void }) {
   const previewing = isDev && dev.previewAsFriend
   const locksActive = !isDev || previewing
   const todayKey = previewing ? dev.previewDate : realToday
-  const progress = useProgress(isDev ? 'test' : 'vriendin')
+  const progress = useProgress(isDev ? 'test' : 'vriendin', contentKeyFor)
   const unlocked = (day: number) => !locksActive || isUnlocked(day, todayKey)
 
   const completedCount = Object.values(progress.progress).filter((p) => p.completed).length
@@ -122,6 +124,8 @@ function CalendarApp({ mode, onExit }: { mode: Mode; onExit: () => void }) {
     </div>
   )
 }
+
+const contentKeyFor = (day: number) => contentKey(getDay(day))
 
 function introText(locksActive: boolean, todayKey: string): string {
   if (!locksActive) return 'Elke dag een kleine verrassing.'

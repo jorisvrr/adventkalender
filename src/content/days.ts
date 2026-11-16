@@ -34,6 +34,8 @@ export interface ScratchDay extends BaseDay {
 export interface WordSearchDay extends BaseDay {
   type: 'woordzoeker'
   instruction: string
+  /** Label boven het invoerveld dat verschijnt als alle woorden gevonden zijn. */
+  answerLabel: string
   /** Rooster, één string per rij. Alle rijen even lang. */
   grid: string[]
   /** Woorden in de vaste volgorde van de lijst. */
@@ -67,37 +69,37 @@ export const days: DayConfig[] = [
     intro: 'Kras het kaartje open met je vinger.',
     coverLabel: 'Kras hier',
     message:
-      'Ook al zijn we niet altijd op dezelfde plek, ik wilde toch elke dag een beetje bij je zijn. Daarom: 24 kleine verrassingen, speciaal voor jou. ❤️',
+      'Ook al zijn we niet altijd op dezelfde plek, ik wilde toch elke dag een beetje bij je zijn. Daarom: 24 kleine verrassingen, speciaal voor jou.',
     revealButton: 'Onthul mijn bericht',
   },
   {
     day: 2,
     type: 'woordzoeker',
     title: 'Zoek je verrassing',
-    instruction:
-      'Vind alle zes woorden. Lees daarna de eerste letters van de woorden in de lijst van boven naar beneden. Welk woord krijg je?',
+    instruction: 'Zoek de zes woorden. Neem daarna de beginletters van de woorden.',
+    answerLabel: 'Vul hier je eerste 6 letters in',
     // Gecontroleerd in src/lib/wordsearch.test.ts: elk woord staat er precies één keer in,
     // alleen horizontaal (links → rechts) of verticaal (boven → onder).
+    // Pas je het rooster of de woorden aan, dan begint opgeslagen voortgang van deze dag opnieuw.
     grid: [
-      'BKSWPFGZ',
-      'PCHOCOLA',
-      'ALKSBUFR',
-      'VGZPWIKM',
-      'OSBKETEN',
-      'NFWGLJSP',
-      'DROOMEYK',
-      'ZPKBSWFG',
+      'KIKKERWB',
+      'HUGZFJVC',
+      'BNOODLES',
+      'ZPWHGUYN',
+      'FAJCVBHO',
+      'GSROOKIE',
+      'WTUBZFJP',
+      'MAASHGCW',
     ],
-    words: ['CHOCOLA', 'AVOND', 'DROOM', 'ETEN', 'ARM', 'UITJE'],
-    solution: 'CADEAU',
-    rewardMessage:
-      'Goed gevonden! Je hebt €5 gewonnen om iets leuks voor jezelf te halen. Stuur mij een screenshot, dan regel ik het 💸',
+    words: ['KIKKER', 'PASTA', 'NOODLES', 'ROOKIE', 'SNOEP', 'MAAS'],
+    solution: 'KPNRSM',
+    rewardMessage: 'Goed gevonden! App mij deze letters, dan krijg je een cadeau.',
     hints: {
       search:
         'Woorden staan alleen van links naar rechts of van boven naar beneden. Sleep over de letters, of tik op de eerste en daarna op de laatste letter.',
-      code: 'Pak van elk woord in de lijst de eerste letter: C, A, … en lees ze achter elkaar.',
+      code: 'Neem van elk woord in de lijst de eerste letter, van boven naar beneden: K, P, … Samen zijn dat 6 letters.',
     },
-    wrongAnswer: 'Bijna! Dat is het nog niet. Lees de eerste letters nog eens van boven naar beneden.',
+    wrongAnswer: 'Nog niet helemaal. Probeer het nog eens.',
   },
   {
     day: 3,

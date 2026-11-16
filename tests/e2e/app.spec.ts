@@ -34,7 +34,7 @@ test.describe('toegang', () => {
     await page.goto('/')
     await expect(page.getByRole('heading', { name: '24 dagen, speciaal voor jou' })).toBeVisible()
     await expect(page.getByText('Elke dag een kleine verrassing.')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Open mijn kalender' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Open de kalender' })).toBeVisible()
     const text = (await page.locator('body').innerText()).toLowerCase()
     expect(text).not.toContain(VRIENDIN)
     expect(text).not.toContain(DEV)
@@ -48,7 +48,7 @@ test.describe('toegang', () => {
   test('onjuiste code geeft een vriendelijke melding', async ({ page }) => {
     await page.goto('/')
     await page.getByRole('textbox', { name: 'Code' }).fill('1234')
-    await page.getByRole('button', { name: 'Open mijn kalender' }).click()
+    await page.getByRole('button', { name: 'Open de kalender' }).click()
     await expect(page.getByRole('alert')).toHaveText('Deze code klopt niet helemaal. Probeer het nog eens.')
     await expect(page.getByRole('list', { name: 'Adventskalender' })).toHaveCount(0)
   })
@@ -134,63 +134,92 @@ test.describe('dag 1 — kraskaart', () => {
     await login(page, VRIENDIN, { at: '2026-12-01T09:00:00+01:00' })
     await page.goto('/#/dag/1')
     await page.getByRole('button', { name: 'Onthul mijn bericht' }).click()
-    await expect(page.getByText('24 kleine verrassingen, speciaal voor jou. ❤️')).toBeVisible()
+    await expect(page.getByText('24 kleine verrassingen, speciaal voor jou.', { exact: false })).toBeVisible()
+    await expect(page.locator('.scratch-message')).toHaveText(/speciaal voor jou\.$/)
     await page.reload()
     await expect(page.getByText('Dit kaartje heb je al opengekrast.')).toBeVisible()
   })
 })
 
 test.describe('dag 2 — woordzoeker', () => {
-  test('alle woorden vinden, codewoord, beloning blijft na herladen', async ({ page }) => {
+  const ANSWER_LABEL = 'Vul hier je eerste 6 letters in'
+
+  test('alle woorden vinden, beginletters invullen, beloning blijft na herladen', async ({ page }) => {
     await login(page, VRIENDIN, { at: '2026-12-02T09:00:00+01:00' })
     await tile(page, 2).getByRole('button').click()
     await expect(page.getByRole('heading', { name: 'Zoek je verrassing' })).toBeVisible()
-    await expect(page.locator('.ws-words li')).toHaveText(['CHOCOLA', 'AVOND', 'DROOM', 'ETEN', 'ARM', 'UITJE'])
+    await expect(page.getByText('Zoek de zes woorden. Neem daarna de beginletters van de woorden.')).toBeVisible()
+    await expect(page.locator('.ws-words li')).toHaveText(['KIKKER', 'PASTA', 'NOODLES', 'ROOKIE', 'SNOEP', 'MAAS'])
 
     // Fout: schuin
     await tapWord(page, '0-0', '2-2')
     await expect(page.getByRole('status').first()).toContainText('één rij of in één kolom')
 
-    // CHOCOLA via slepen
-    const a = (await page.locator('[data-cell="1-1"]').boundingBox())!
-    const b = (await page.locator('[data-cell="1-7"]').boundingBox())!
+    // KIKKER via slepen
+    const a = (await page.locator('[data-cell="0-0"]').boundingBox())!
+    const b = (await page.locator('[data-cell="0-5"]').boundingBox())!
     await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2)
     await page.mouse.down()
     await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 10 })
     await page.mouse.up()
-    await expect(page.locator('[data-word="CHOCOLA"]')).toHaveClass(/is-found/)
+    await expect(page.locator('[data-word="KIKKER"]')).toHaveClass(/is-found/)
 
-    await tapWord(page, '2-0', '6-0') // AVOND
-    await tapWord(page, '6-4', '6-0') // DROOM, achterstevoren getikt
+    await tapWord(page, '3-1', '7-1') // PASTA (verticaal)
+    await tapWord(page, '2-7', '2-1') // NOODLES, achterstevoren getikt
     await page.reload()
     await expect(page.locator('.ws-words li.is-found')).toHaveCount(3)
-    await expect(page.getByRole('textbox', { name: 'Welk woord krijg je?' })).toHaveCount(0)
+    await expect(page.getByRole('textbox', { name: ANSWER_LABEL })).toHaveCount(0)
 
-    await tapWord(page, '4-4', '4-7') // ETEN
-    await tapWord(page, '1-7', '3-7') // ARM
-    await tapWord(page, '2-5', '6-5') // UITJE
+    await tapWord(page, '5-2', '5-7') // ROOKIE
+    await tapWord(page, '2-7', '6-7') // SNOEP (verticaal, deelt de S met NOODLES)
+    await tapWord(page, '7-0', '7-3') // MAAS (deelt de A met PASTA)
     await expect(page.locator('.ws-words li.is-found')).toHaveCount(6)
 
     await page.getByRole('button', { name: 'Geef me een hint' }).click()
-    await expect(page.getByText('Pak van elk woord in de lijst de eerste letter')).toBeVisible()
+    await expect(page.getByText('Neem van elk woord in de lijst de eerste letter')).toBeVisible()
 
-    const answer = page.getByRole('textbox', { name: 'Welk woord krijg je?' })
-    await answer.fill('kado')
+    const answer = page.getByRole('textbox', { name: ANSWER_LABEL })
+    await expect(answer).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Controleer' })).toBeVisible()
+    await answer.fill('kpnrs')
     await answer.press('Enter')
-    await expect(page.getByRole('alert')).toContainText('Bijna!')
+    await expect(page.getByRole('alert')).toHaveText('Nog niet helemaal. Probeer het nog eens.')
 
-    await answer.fill('  cadeau ')
+    await answer.fill(' k p n r s m ')
     await page.getByRole('button', { name: 'Controleer' }).click()
-    await expect(page.getByTestId('beloning')).toContainText('Goed gevonden! Je hebt €5 gewonnen')
+    await expect(page.getByTestId('beloning')).toContainText('Goed gevonden! App mij deze letters, dan krijg je een cadeau.')
     await expect(page.getByTestId('beloning')).not.toContainText('Al opgelost')
 
     await page.reload()
     await expect(page.getByTestId('beloning')).toContainText('Al opgelost')
-    await expect(page.getByTestId('beloning')).toContainText('Jouw beloning')
-    await expect(page.getByTestId('beloning')).toContainText('€5')
-    await expect(page.getByRole('textbox', { name: 'Welk woord krijg je?' })).toHaveCount(0)
+    await expect(page.getByTestId('beloning')).toContainText('App mij deze letters')
+    await expect(page.getByRole('textbox', { name: ANSWER_LABEL })).toHaveCount(0)
+    const text = await page.locator('body').innerText()
+    for (const old of ['CADEAU', '€5', 'screenshot']) expect(text).not.toContain(old)
     await page.getByRole('button', { name: 'Terug naar de kalender' }).click()
     await expect(tile(page, 2)).toHaveAttribute('data-status', 'voltooid')
+  })
+
+  test('oude voortgang van het vorige rooster botst niet', async ({ page }) => {
+    await login(page, VRIENDIN, { at: '2026-12-05T09:00:00+01:00' })
+    await page.evaluate(() => {
+      localStorage.setItem(
+        'adventskalender:v1:voortgang:vriendin',
+        JSON.stringify({
+          1: { completed: true },
+          2: { completed: true, state: { found: ['CHOCOLA', 'AVOND', 'DROOM', 'ETEN', 'ARM', 'UITJE'], solved: true } },
+        }),
+      )
+    })
+    await page.reload()
+    await expect(tile(page, 1)).toHaveAttribute('data-status', 'voltooid') // kraskaart blijft gewoon staan
+    await expect(tile(page, 2)).toHaveAttribute('data-status', 'beschikbaar')
+    await tile(page, 2).getByRole('button').click()
+    await expect(page.locator('.ws-words li.is-found')).toHaveCount(0)
+    await expect(page.getByTestId('beloning')).toHaveCount(0)
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('adventskalender:v1:voortgang:vriendin')!))
+    expect(stored[2]).toBeUndefined()
+    expect(stored[1].completed).toBe(true)
   })
 })
 

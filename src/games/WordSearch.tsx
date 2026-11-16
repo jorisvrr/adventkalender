@@ -133,7 +133,7 @@ export function WordSearch({ config, saved, onState, onComplete }: GameProps<Wor
       persist({ found, solved: true })
       onComplete()
     } else {
-      setAnswerFeedback(answer.trim() ? config.wrongAnswer : 'Vul eerst een woord in.')
+      setAnswerFeedback(config.wrongAnswer)
     }
   }
 
@@ -203,12 +203,12 @@ export function WordSearch({ config, saved, onState, onComplete }: GameProps<Wor
 
       {allFound && !solved && (
         <form className="answer card-inset" onSubmit={submitAnswer} noValidate>
-          <label htmlFor="codewoord" className="answer-label">
-            Welk woord krijg je?
+          <label htmlFor="beginletters" className="answer-label">
+            {config.answerLabel}
           </label>
           <div className="answer-row">
             <input
-              id="codewoord"
+              id="beginletters"
               className="text-input"
               value={answer}
               onChange={(e) => {
@@ -219,7 +219,7 @@ export function WordSearch({ config, saved, onState, onComplete }: GameProps<Wor
               autoCapitalize="characters"
               spellCheck={false}
               enterKeyHint="done"
-              placeholder="Het codewoord"
+              placeholder="6 letters"
             />
             <button type="submit" className="btn btn-primary">
               Controleer
@@ -233,18 +233,10 @@ export function WordSearch({ config, saved, onState, onComplete }: GameProps<Wor
 
       {solved && (
         <div className={`reward ${justSolved ? 'is-new' : ''}`} data-testid="beloning">
-          {justSolved ? (
-            <>
-              <p className="reward-eyebrow">Het codewoord was {config.solution}</p>
-              <p className="reward-text">{config.rewardMessage}</p>
-            </>
-          ) : (
-            <>
-              <p className="reward-eyebrow">Al opgelost · het codewoord was {config.solution}</p>
-              <p className="reward-label">Jouw beloning</p>
-              <p className="reward-text">{config.rewardMessage}</p>
-            </>
-          )}
+          <p className="reward-eyebrow">
+            {justSolved ? 'Jouw letters' : 'Al opgelost · jouw letters'}: {config.solution}
+          </p>
+          <p className="reward-text">{config.rewardMessage}</p>
         </div>
       )}
 

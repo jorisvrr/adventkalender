@@ -11,6 +11,20 @@ interface Props {
   onComplete: () => void
 }
 
+/**
+ * Sleutel van de inhoud waar opgeslagen spelstaat van afhangt. Verandert de sleutel
+ * (bijvoorbeeld een nieuw rooster), dan begint die dag opnieuw. undefined = voortgang
+ * hangt niet af van de inhoud (een tekstwijziging wist dus niets).
+ */
+export function contentKey(config: DayConfig): string | undefined {
+  switch (config.type) {
+    case 'woordzoeker':
+      return `woordzoeker:${config.grid.join('/')}|${config.words.join(',')}|${config.solution}`
+    default:
+      return undefined
+  }
+}
+
 /** Koppelt het `type` uit days.ts aan een spelcomponent. Nieuw type? Voeg hier een regel toe. */
 export function GameForDay({ config, saved, ...rest }: Props) {
   switch (config.type) {

@@ -72,6 +72,7 @@ export function matchSelection(
   return null
 }
 
+/** Hoofdletters/kleine letters en alle spaties tellen niet mee. */
 export function normalizeAnswer(input: string): string {
-  return input.trim().toLocaleUpperCase('nl-NL')
+  return input.replace(/\s+/g, '').toLocaleUpperCase('nl-NL')
 }

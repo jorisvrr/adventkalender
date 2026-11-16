@@ -35,7 +35,7 @@ De codes zijn een eenvoudige toegangspoort, geen beveiliging: ze staan in de bro
 
 Dag 4 t/m 24 toevoegen: zet een nieuw object in de `days`-lijst. Dagen die er niet in staan tonen automatisch "De verrassing wordt nog klaargemaakt". Een nieuw soort activiteit maak je in `src/games/` en koppel je in `src/games/registry.tsx`.
 
-Pas je het woordzoekerrooster aan, draai dan `npm test`: die controleert dat elk woord er precies één keer in staat.
+Pas je het woordzoekerrooster aan, draai dan `npm test`: die controleert dat elk woord er precies één keer in staat. Opgeslagen voortgang van die dag hoort bij het oude rooster en wordt dan automatisch genegeerd (zie `contentKey` in `src/games/registry.tsx`).
 
 ## Structuur
 

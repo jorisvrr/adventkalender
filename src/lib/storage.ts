@@ -7,6 +7,8 @@ export type ProgressSpace = 'vriendin' | 'test'
 export interface DayProgress {
   completed?: boolean
   completedAt?: string
+  /** Inhoud waarvoor deze voortgang geldt (zie contentKey in src/games/registry.tsx). */
+  contentKey?: string
   /** Spelspecifieke staat (gevonden woorden, tegelposities, …). */
   state?: unknown
 }
@@ -32,6 +34,17 @@ export function loadProgress(space: ProgressSpace): Progress {
   } catch {
     return {}
   }
+}
+
+export type ContentKeyFor = (day: number) => string | undefined
+
+/** Laat voortgang weg die bij andere inhoud hoort (bijv. een oud rooster). */
+export function sanitizeProgress(progress: Progress, keyFor: ContentKeyFor): Progress {
+  const clean: Progress = {}
+  for (const [day, entry] of Object.entries(progress)) {
+    if (entry && typeof entry === 'object' && entry.contentKey === keyFor(Number(day))) clean[day] = entry
+  }
+  return clean
 }
 
 export function saveProgress(space: ProgressSpace, progress: Progress): void {

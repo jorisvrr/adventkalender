@@ -22,7 +22,7 @@ export const settings = {
   landing: {
     title: '24 dagen, speciaal voor jou',
     subtitle: 'Elke dag een kleine verrassing.',
-    button: 'Open mijn kalender',
+    button: 'Open de kalender',
     wrongCode: 'Deze code klopt niet helemaal. Probeer het nog eens.',
   },
 
