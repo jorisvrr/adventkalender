@@ -7,7 +7,7 @@ Persoonlijke adventskalender-webapp (Vite + React + TypeScript). Geen backend: v
 ```bash
 npm install
 npm run dev          # http://localhost:5173
-npm run dev:lan      # ook bereikbaar vanaf je telefoon op hetzelfde wifi
+npm run dev:lan      # build + serveer op je netwerk (telefoon, zelfde wifi), poort 4173
 npm run build        # productiebuild in dist/
 npm run preview      # bekijk de build
 npm test             # unit-tests (rooster, datums, puzzel, codes)
