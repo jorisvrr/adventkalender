@@ -7,14 +7,22 @@
  *   2. Bestaat dat type al (kraskaart, woordzoeker, fotopuzzel), dan ben je klaar.
  *   3. Nieuw soort activiteit? Maak een component in src/games/ en koppel het
  *      type in src/games/registry.tsx.
- * Dagen die hier niet staan, tonen automatisch "De verrassing wordt nog klaargemaakt".
+ * Dagen die hier niet staan, blijven publiek gesloten (alleen nummer en slotje), ook na
+ * hun datum. In ontwikkelaarsmodus (/#/dev) zie je welke dagen nog leeg zijn.
+ * Een dag toevoegen wist geen bestaande voortgang van andere dagen.
  *
  * Ontgrendelen: standaard opent dag N op N december (settings.year) om 00:00
  * Europe/Amsterdam. Wil je een andere datum, zet dan `opensOn: 'JJJJ-MM-DD'`.
  */
 
-/** Foto voor de puzzel van dag 3. Vervang door bijvoorbeeld '/images/wij.jpg' (zet het bestand in public/images/). */
-const DAG_3_FOTO = '/images/dag-3-placeholder.svg'
+/** Meegeleverde voorbeeldafbeelding. Zolang een dag die gebruikt, meldt de ontwikkelaarsmodus dat. */
+export const VOORBEELDAFBEELDING = '/images/dag-3-placeholder.svg'
+
+/**
+ * Foto voor de puzzel van dag 3. Vervang door bijvoorbeeld '/images/wij.jpg' (zet het bestand
+ * in public/images/, vierkant werkt het mooist) en pas `imageAlt` bij dag 3 aan.
+ */
+const DAG_3_FOTO = VOORBEELDAFBEELDING
 
 interface BaseDay {
   day: number

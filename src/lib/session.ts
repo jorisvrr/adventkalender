@@ -1,28 +1,37 @@
-import { settings, type Mode } from '../content/settings'
+import { settings } from '../content/settings'
 
-const KEY = 'adventskalender:v1:modus'
+/**
+ * Alleen de ontwikkelaarsmodus heeft een sessie. Publieke routes lezen deze nooit,
+ * zodat een eerdere ontwikkelaarssessie de publieke kalender niet kan beïnvloeden.
+ */
+const DEV_KEY = 'adventskalender:v2:ontwikkelaar'
+/** Sessiesleutels van eerdere versies (codeveld op de landing). */
+const LEGACY_KEYS = ['adventskalender:v1:modus']
 
-/** Welke modus hoort bij deze code? null = onjuiste code. */
-export function modeForCode(input: string): Mode | null {
-  const code = input.trim()
-  if (code === settings.codes.vriendin) return 'vriendin'
-  if (code === settings.codes.ontwikkelaar) return 'ontwikkelaar'
-  return null
+export function isDevCode(input: string): boolean {
+  return input.trim() === settings.devCode
 }
 
-export function loadMode(): Mode | null {
+export function loadDevUnlocked(): boolean {
   try {
-    const v = window.sessionStorage.getItem(KEY)
-    return v === 'vriendin' || v === 'ontwikkelaar' ? v : null
+    return window.sessionStorage.getItem(DEV_KEY) === '1'
   } catch {
-    return null
+    return false
   }
 }
 
-export function saveMode(mode: Mode | null): void {
+export function saveDevUnlocked(unlocked: boolean): void {
   try {
-    if (mode) window.sessionStorage.setItem(KEY, mode)
-    else window.sessionStorage.removeItem(KEY)
+    if (unlocked) window.sessionStorage.setItem(DEV_KEY, '1')
+    else window.sessionStorage.removeItem(DEV_KEY)
+  } catch {
+    /* negeren */
+  }
+}
+
+export function clearLegacySession(): void {
+  try {
+    LEGACY_KEYS.forEach((k) => window.sessionStorage.removeItem(k))
   } catch {
     /* negeren */
   }

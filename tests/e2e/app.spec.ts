@@ -1,26 +1,37 @@
 import { expect, test, type Page } from '@playwright/test'
+import { contentWarnings, formatRanges, missingDays } from '../../src/lib/contentStatus'
 
-const VRIENDIN = '3012'
 const DEV = '1502'
+const TITLE = '24 dagen, speciaal voor jou'
 
-async function login(page: Page, code: string, { at }: { at?: string } = {}) {
+/** Publieke ervaring: startpagina → "Open de kalender". */
+async function openPublic(page: Page, { at }: { at?: string } = {}) {
   if (at) await page.clock.setFixedTime(new Date(at))
   await page.goto('/')
-  await page.getByRole('textbox', { name: 'Code' }).fill(code)
-  await page.getByRole('textbox', { name: 'Code' }).press('Enter')
+  await page.getByRole('button', { name: 'Open de kalender' }).click()
   await expect(page.getByRole('list', { name: 'Adventskalender' })).toBeVisible()
+}
+
+/** Ontwikkelaarsmodus via /#/dev met code. */
+async function openDev(page: Page, { at }: { at?: string } = {}) {
+  if (at) await page.clock.setFixedTime(new Date(at))
+  await page.goto('/#/dev')
+  await page.getByRole('textbox', { name: 'Code' }).fill(DEV)
+  await page.getByRole('textbox', { name: 'Code' }).press('Enter')
+  await expect(page.getByTestId('badge-ontwikkelaar')).toBeVisible()
 }
 
 const tile = (page: Page, day: number) => page.locator(`.calendar [data-day="${day}"]`)
 
-async function exit(page: Page) {
-  await page.getByRole('button', { name: 'Afsluiten' }).click()
-  await expect(page.getByRole('heading', { name: '24 dagen, speciaal voor jou' })).toBeVisible()
-}
-
-async function noHorizontalScroll(page: Page) {
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
-  expect(overflow).toBeLessThanOrEqual(0)
+/** Zichtbare tekst van een element (zonder tekst die alleen voor schermlezers is). */
+async function visibleText(page: Page, selector: string) {
+  return page.locator(selector).evaluate((el: HTMLElement) => {
+    const hidden = [...el.querySelectorAll<HTMLElement>('.visually-hidden')]
+    hidden.forEach((h) => (h.style.display = 'none'))
+    const text = el.innerText
+    hidden.forEach((h) => (h.style.display = ''))
+    return text.replace(/\s+/g, ' ').trim()
+  })
 }
 
 /** Selecteer een woord door begin- en eindletter aan te tikken. */
@@ -29,88 +40,156 @@ async function tapWord(page: Page, from: string, to: string) {
   await page.locator(`[data-cell="${to}"]`).click()
 }
 
-test.describe('toegang', () => {
-  test('landing toont geen codes of ontwikkelaarsoptie', async ({ page }) => {
+async function noHorizontalScroll(page: Page) {
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  expect(overflow).toBeLessThanOrEqual(0)
+}
+
+/** Woorden die publiek nooit zichtbaar mogen zijn. */
+const NIET_PUBLIEK = ['klaargemaakt', 'binnenkort', 'placeholder', 'geen inhoud', 'inhoud', 'ontwikkelaar', 'vriendin', 'gf mode', 'debug', 'test', '1502', '3012']
+
+async function expectCleanPublicText(page: Page) {
+  const text = (await page.locator('body').innerText()).toLowerCase()
+  for (const word of NIET_PUBLIEK) expect(text, `"${word}" staat publiek in beeld`).not.toContain(word)
+  await expect(page.getByTestId('badge-ontwikkelaar')).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Ontwikkelaarspaneel' })).toHaveCount(0)
+  await expect(page.locator('a[href*="dev"]')).toHaveCount(0)
+}
+
+async function expectLockedDay(page: Page, day: number, opensText: string) {
+  await expect(page.getByRole('heading', { name: 'Nog even geduld' })).toBeVisible()
+  await expect(page.getByText(opensText)).toBeVisible()
+  await expect(page.locator('[data-testid="kraslaag"], .ws-grid, .puzzle-grid, .scratch-message')).toHaveCount(0)
+  await expect(page.locator('.day-eyebrow')).toContainText(`Dag ${day}`)
+}
+
+/** Simuleert een eerder gebruikte ontwikkelaarssessie: ontgrendeld, preview aan, testvoortgang, oude sessiesleutel. */
+async function useDevSessionFirst(page: Page) {
+  await openDev(page)
+  await page.goto('/#/dev/dag/1')
+  await page.getByRole('button', { name: 'Onthul mijn bericht' }).click()
+  await page.getByRole('button', { name: 'Terug naar de kalender' }).click()
+  await page.getByLabel('Voorbeeld-datum').fill('2026-12-24')
+  await page.getByText(/Bekijk als vriendin op/).click()
+  await expect(page.getByTestId('badge-ontwikkelaar')).toContainText('preview')
+  await page.evaluate(() => sessionStorage.setItem('adventskalender:v1:modus', 'ontwikkelaar'))
+}
+
+test.describe('publieke toegang', () => {
+  test('startpagina: één knop, geen codeveld en geen verwijzing naar de ontwikkelaarsmodus', async ({ page }) => {
     await page.goto('/')
-    await expect(page.getByRole('heading', { name: '24 dagen, speciaal voor jou' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: TITLE })).toBeVisible()
     await expect(page.getByText('Elke dag een kleine verrassing.')).toBeVisible()
+    await expect(page.getByRole('button')).toHaveCount(1)
     await expect(page.getByRole('button', { name: 'Open de kalender' })).toBeVisible()
-    const text = (await page.locator('body').innerText()).toLowerCase()
-    expect(text).not.toContain(VRIENDIN)
-    expect(text).not.toContain(DEV)
-    expect(text).not.toContain('ontwikkelaar')
-    const input = page.getByRole('textbox', { name: 'Code' })
-    await expect(input).toHaveAttribute('inputmode', 'numeric')
-    await expect(input).toHaveAttribute('maxlength', '4')
+    await expect(page.getByRole('textbox')).toHaveCount(0)
+    await expect(page.locator('a')).toHaveCount(0)
+    await expectCleanPublicText(page)
     await noHorizontalScroll(page)
   })
 
-  test('onjuiste code geeft een vriendelijke melding', async ({ page }) => {
-    await page.goto('/')
-    await page.getByRole('textbox', { name: 'Code' }).fill('1234')
-    await page.getByRole('button', { name: 'Open de kalender' }).click()
-    await expect(page.getByRole('alert')).toHaveText('Deze code klopt niet helemaal. Probeer het nog eens.')
-    await expect(page.getByRole('list', { name: 'Adventskalender' })).toHaveCount(0)
-  })
-
-  test('3012 opent vriendinmodus, onthoudt de sessie en Afsluiten werkt', async ({ page }) => {
-    await login(page, VRIENDIN, { at: '2026-12-05T09:00:00+01:00' })
-    await expect(page.getByTestId('badge-ontwikkelaar')).toHaveCount(0)
-    await expect(page.getByRole('heading', { name: 'Ontwikkelaarspaneel' })).toHaveCount(0)
+  test('de knop opent direct de gewone kalender; terug-gebaar gaat naar de startpagina', async ({ page }) => {
+    await openPublic(page, { at: '2026-12-05T09:00:00+01:00' })
     await expect(page.locator('.calendar > li')).toHaveCount(24)
-    await page.reload()
-    await expect(page.getByRole('list', { name: 'Adventskalender' })).toBeVisible()
-    await exit(page)
-    await page.reload()
-    await expect(page.getByRole('textbox', { name: 'Code' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Afsluiten' })).toHaveCount(0)
+    await expectCleanPublicText(page)
+    await page.goBack()
+    await expect(page.getByRole('button', { name: 'Open de kalender' })).toBeVisible()
   })
 
-  test('1502 opent ontwikkelaarsmodus met badge en paneel', async ({ page }) => {
-    await login(page, DEV, { at: '2026-11-16T12:00:00+01:00' })
-    await expect(page.getByTestId('badge-ontwikkelaar')).toHaveText('Ontwikkelaarsmodus')
-    await expect(page.getByRole('heading', { name: 'Ontwikkelaarspaneel' })).toBeVisible()
-    // In november: toch alles open.
-    for (const d of [1, 2, 3, 4, 24]) await expect(tile(page, d)).toHaveAttribute('data-status', 'beschikbaar')
+  test('vóór 1 december (schone sessie): alles dicht, alleen nummer, slotje en openingsdatum', async ({ page }) => {
+    await openPublic(page, { at: '2026-11-17T12:00:00+01:00' })
+    await expect(page.locator('.calendar-intro')).toHaveText('Op 1 december gaat het eerste vakje open.')
+    for (let d = 1; d <= 24; d++) {
+      await expect(tile(page, d)).toHaveAttribute('data-status', 'gesloten')
+      await expect(tile(page, d).locator('svg')).toHaveCount(1)
+      expect(await visibleText(page, `.calendar [data-day="${d}"]`)).toBe(`${d} Opent op ${d} december`)
+    }
+    await expect(page.locator('.calendar button')).toHaveCount(0)
+    await expectCleanPublicText(page)
     await noHorizontalScroll(page)
   })
-})
 
-test.describe('datumvergrendeling (vriendin)', () => {
-  test('in november is alles dicht', async ({ page }) => {
-    await login(page, VRIENDIN, { at: '2026-11-30T23:59:00+01:00' })
-    await expect(tile(page, 1)).toHaveAttribute('data-status', 'gesloten')
-    await expect(tile(page, 1)).toContainText('Opent op 1 december')
+  test('directe daglinks vóór de openingsdatum tonen geen inhoud', async ({ page }) => {
+    await page.clock.setFixedTime(new Date('2026-11-30T23:59:00+01:00'))
+    for (const d of [1, 2, 3, 4, 24]) {
+      await page.goto(`/#/dag/${d}`)
+      await expectLockedDay(page, d, `Dit vakje opent op ${d} december.`)
+      await expectCleanPublicText(page)
+    }
+    // Ontwikkelaarsroute zonder code geeft ook geen inhoud.
+    await page.goto('/#/dev/dag/1')
+    await expect(page.getByRole('textbox', { name: 'Code' })).toBeVisible()
+    await expect(page.locator('.scratch-message, .day-card')).toHaveCount(0)
+  })
+
+  test('directe daglink op 2 december: dag 2 open, dag 3 nog dicht', async ({ page }) => {
+    await page.clock.setFixedTime(new Date('2026-12-02T23:59:00+01:00'))
+    await page.goto('/#/dag/3')
+    await expectLockedDay(page, 3, 'Dit vakje opent op 3 december.')
+    await page.goto('/#/dag/2')
+    await expect(page.getByRole('heading', { name: 'Zoek je verrassing' })).toBeVisible()
   })
 
   test('middernacht Amsterdamse tijd opent dag 1', async ({ page }) => {
-    await login(page, VRIENDIN, { at: '2026-11-30T23:30:00Z' }) // = 00:30 in Amsterdam
+    await openPublic(page, { at: '2026-11-30T23:30:00Z' }) // = 00:30 in Amsterdam
     await expect(tile(page, 1)).toHaveAttribute('data-status', 'beschikbaar')
     await expect(tile(page, 2)).toHaveAttribute('data-status', 'gesloten')
+    await expect(page.locator('.calendar-intro')).toHaveText('Vandaag is het 1 december. Vakje 1 is open.')
   })
 
-  test('op 3 december: 1–3 open, 4 dicht, toekomstige dag niet te openen via de url', async ({ page }) => {
-    await login(page, VRIENDIN, { at: '2026-12-03T08:00:00+01:00' })
+  test('op 3 december: 1–3 open, 4 dicht', async ({ page }) => {
+    await openPublic(page, { at: '2026-12-03T08:00:00+01:00' })
     for (const d of [1, 2, 3]) await expect(tile(page, d)).toHaveAttribute('data-status', 'beschikbaar')
     await expect(tile(page, 4)).toHaveAttribute('data-status', 'gesloten')
     await expect(tile(page, 4)).toContainText('Opent op 4 december')
     await expect(tile(page, 4).getByRole('button')).toHaveCount(0)
-    await page.goto('/#/dag/4')
-    await expect(page.getByRole('heading', { name: 'Nog even geduld' })).toBeVisible()
-    await expect(page.getByText('Dit vakje opent op 4 december.')).toBeVisible()
   })
 
-  test('beschikbare placeholder toont dat de verrassing nog wordt klaargemaakt', async ({ page }) => {
-    await login(page, VRIENDIN, { at: '2026-12-10T08:00:00+01:00' })
-    await tile(page, 7).getByRole('button').click()
-    await expect(page.getByRole('heading', { name: 'De verrassing wordt nog klaargemaakt' })).toBeVisible()
-    await page.getByRole('button', { name: 'Terug naar de kalender' }).click()
-    await expect(page.getByRole('list', { name: 'Adventskalender' })).toBeVisible()
+  test('een vakje zonder inhoud blijft na zijn datum gesloten, zonder melding', async ({ page }) => {
+    const missing = missingDays()
+    test.skip(missing.length === 0, 'Alle dagen hebben inhoud')
+    const d = missing[0]
+    await openPublic(page, { at: `2026-12-${String(d).padStart(2, '0')}T12:00:00+01:00` })
+    await expect(tile(page, d)).toHaveAttribute('data-status', 'gesloten')
+    expect(await visibleText(page, `.calendar [data-day="${d}"]`)).toBe(String(d))
+    await expect(page.locator('.calendar-intro')).toHaveText(`Vandaag is het ${d} december.`)
+    await expectCleanPublicText(page)
+    await page.goto(`/#/dag/${d}`)
+    await expectLockedDay(page, d, 'Dit vakje is nog dicht.')
+    await expectCleanPublicText(page)
+  })
+
+  test('een eerder gebruikte ontwikkelaarssessie beïnvloedt de publieke kalender niet', async ({ page }) => {
+    await page.clock.setFixedTime(new Date('2026-11-17T12:00:00+01:00'))
+    await useDevSessionFirst(page)
+
+    await page.goto('/')
+    await expect(page.getByRole('button', { name: 'Open de kalender' })).toBeVisible()
+    await expect(page.getByRole('textbox')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Open de kalender' }).click()
+    await expect(page.locator('.calendar-intro')).toHaveText('Op 1 december gaat het eerste vakje open.')
+    await expect(tile(page, 1)).toHaveAttribute('data-status', 'gesloten')
+    await expect(page.getByRole('region', { name: 'Preview' })).toHaveCount(0)
+    await expectCleanPublicText(page)
+
+    await page.goto('/#/dag/1')
+    await expectLockedDay(page, 1, 'Dit vakje opent op 1 december.')
+    expect(await page.evaluate(() => sessionStorage.getItem('adventskalender:v1:modus'))).toBeNull()
+
+    // Herladen op een publieke route verandert daar niets aan.
+    await page.reload()
+    await expectLockedDay(page, 1, 'Dit vakje opent op 1 december.')
+
+    // De ontwikkelaarsmodus zelf onthoudt de sessie wel.
+    await page.goto('/#/dev')
+    await expect(page.getByTestId('badge-ontwikkelaar')).toBeVisible()
   })
 })
 
 test.describe('dag 1 — kraskaart', () => {
   test('openkrassen onthult het bericht en markeert voltooid', async ({ page }) => {
-    await login(page, VRIENDIN, { at: '2026-12-01T09:00:00+01:00' })
+    await openPublic(page, { at: '2026-12-01T09:00:00+01:00' })
     await tile(page, 1).getByRole('button').click()
     await expect(page.getByRole('heading', { name: 'Een klein begin' })).toBeVisible()
     const canvas = page.getByTestId('kraslaag')
@@ -131,7 +210,7 @@ test.describe('dag 1 — kraskaart', () => {
   })
 
   test('knop "Onthul mijn bericht" werkt ook', async ({ page }) => {
-    await login(page, VRIENDIN, { at: '2026-12-01T09:00:00+01:00' })
+    await openPublic(page, { at: '2026-12-01T09:00:00+01:00' })
     await page.goto('/#/dag/1')
     await page.getByRole('button', { name: 'Onthul mijn bericht' }).click()
     await expect(page.getByText('24 kleine verrassingen, speciaal voor jou.', { exact: false })).toBeVisible()
@@ -145,7 +224,7 @@ test.describe('dag 2 — woordzoeker', () => {
   const ANSWER_LABEL = 'Vul hier je eerste 6 letters in'
 
   test('alle woorden vinden, beginletters invullen, beloning blijft na herladen', async ({ page }) => {
-    await login(page, VRIENDIN, { at: '2026-12-02T09:00:00+01:00' })
+    await openPublic(page, { at: '2026-12-02T09:00:00+01:00' })
     await tile(page, 2).getByRole('button').click()
     await expect(page.getByRole('heading', { name: 'Zoek je verrassing' })).toBeVisible()
     await expect(page.getByText('Zoek de zes woorden. Neem daarna de beginletters van de woorden.')).toBeVisible()
@@ -201,7 +280,7 @@ test.describe('dag 2 — woordzoeker', () => {
   })
 
   test('oude voortgang van het vorige rooster botst niet', async ({ page }) => {
-    await login(page, VRIENDIN, { at: '2026-12-05T09:00:00+01:00' })
+    await openPublic(page, { at: '2026-12-05T09:00:00+01:00' })
     await page.evaluate(() => {
       localStorage.setItem(
         'adventskalender:v1:voortgang:vriendin',
@@ -236,12 +315,15 @@ async function solvePuzzle(page: Page) {
 
 test.describe('dag 3 — fotopuzzel', () => {
   test('geschud begin, posities bewaard, oplossen toont boodschap', async ({ page }) => {
-    await login(page, VRIENDIN, { at: '2026-12-03T09:00:00+01:00' })
+    await openPublic(page, { at: '2026-12-03T09:00:00+01:00' })
     await page.goto('/#/dag/3')
     await expect(page.getByRole('heading', { name: 'Stukjes van ons' })).toBeVisible()
     const order = () => page.locator('[data-slot]').evaluateAll((els) => els.map((e) => Number(e.getAttribute('data-tile'))))
     const start = await order()
     expect(start).not.toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8])
+    await expect
+      .poll(() => page.locator('.puzzle-tile img').first().evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth > 0))
+      .toBe(true)
 
     await page.getByRole('button', { name: 'Bekijk het voorbeeld' }).click()
     await expect(page.getByRole('button', { name: 'Voorbeeld sluiten' })).toBeVisible()
@@ -264,20 +346,54 @@ test.describe('dag 3 — fotopuzzel', () => {
 })
 
 test.describe('ontwikkelaarsmodus', () => {
-  test('testvoortgang staat los van vriendinvoortgang', async ({ page }) => {
+  test('/#/dev vraagt de code en toont daarna alles, met inhoudsstatus', async ({ page }) => {
+    await page.clock.setFixedTime(new Date('2026-11-17T12:00:00+01:00'))
+    await page.goto('/#/dev')
+    await page.getByRole('textbox', { name: 'Code' }).fill('1234')
+    await page.getByRole('button', { name: 'Ontgrendel' }).click()
+    await expect(page.getByRole('alert')).toHaveText('Deze code klopt niet.')
+    await page.getByRole('textbox', { name: 'Code' }).fill(DEV)
+    await page.getByRole('textbox', { name: 'Code' }).press('Enter')
+
+    await expect(page.getByTestId('badge-ontwikkelaar')).toHaveText('Ontwikkelaarsmodus')
+    await expect(page.getByRole('heading', { name: 'Ontwikkelaarspaneel' })).toBeVisible()
+    for (const d of [1, 2, 3, 4, 24]) await expect(tile(page, d)).toHaveAttribute('data-status', 'beschikbaar')
+
+    const status = page.getByTestId('inhoudsstatus')
+    const missing = missingDays()
+    if (missing.length) await expect(status).toContainText(`Nog leeg: ${formatRanges(missing)}`)
+    for (const w of contentWarnings()) await expect(status).toContainText(`Dag ${w.day} ${w.text}`)
+    await expect(status).not.toContainText('niet gevonden')
+
+    if (missing.length) {
+      await expect(tile(page, missing[0])).toContainText('Geen inhoud')
+      await page.goto(`/#/dev/dag/${missing[0]}`)
+      await expect(page.getByRole('heading', { name: 'Nog geen inhoud' })).toBeVisible()
+    }
+    await noHorizontalScroll(page)
+  })
+
+  test('Afsluiten vergrendelt de ontwikkelaarsmodus weer', async ({ page }) => {
+    await openDev(page)
+    await page.getByRole('button', { name: 'Afsluiten' }).click()
+    await expect(page.getByRole('button', { name: 'Open de kalender' })).toBeVisible()
+    await page.goto('/#/dev')
+    await expect(page.getByRole('textbox', { name: 'Code' })).toBeVisible()
+  })
+
+  test('testvoortgang staat los van de publieke voortgang', async ({ page }) => {
     await page.clock.setFixedTime(new Date('2026-12-05T09:00:00+01:00'))
-    // Vriendin voltooit dag 1
-    await login(page, VRIENDIN)
+    // Publiek: dag 1 voltooien
+    await openPublic(page)
     await page.goto('/#/dag/1')
     await page.getByRole('button', { name: 'Onthul mijn bericht' }).click()
     await page.getByRole('button', { name: 'Terug naar de kalender' }).click()
     await expect(tile(page, 1)).toHaveAttribute('data-status', 'voltooid')
-    await exit(page)
 
-    // Ontwikkelaar ziet dag 1 als niet voltooid, voltooit dag 2's kraskaart niet maar dag 1 wel
-    await login(page, DEV)
+    // Ontwikkelaar ziet dag 1 als niet voltooid
+    await openDev(page)
     await expect(tile(page, 1)).toHaveAttribute('data-status', 'beschikbaar')
-    await page.goto('/#/dag/1')
+    await page.goto('/#/dev/dag/1')
     await page.getByRole('button', { name: 'Onthul mijn bericht' }).click()
     await expect(page.getByText('Test · dag 1 voltooid')).toBeVisible()
     await page.getByRole('button', { name: 'Reset deze dag' }).click()
@@ -293,16 +409,15 @@ test.describe('ontwikkelaarsmodus', () => {
     await page.getByRole('button', { name: 'Reset alle testvoortgang' }).click()
     await page.getByRole('button', { name: 'Ja, alles wissen' }).click()
     await expect(tile(page, 1)).toHaveAttribute('data-status', 'beschikbaar')
-    await exit(page)
 
-    // Vriendinvoortgang is ongemoeid
-    await login(page, VRIENDIN)
+    // Publieke voortgang is ongemoeid
+    await page.goto('/#/kalender')
     await expect(tile(page, 1)).toHaveAttribute('data-status', 'voltooid')
   })
 
   test('reset per dag via het paneel', async ({ page }) => {
-    await login(page, DEV)
-    await page.goto('/#/dag/1')
+    await openDev(page)
+    await page.goto('/#/dev/dag/1')
     await page.getByRole('button', { name: 'Onthul mijn bericht' }).click()
     await page.getByRole('button', { name: 'Terug naar de kalender' }).click()
     await expect(tile(page, 1)).toHaveAttribute('data-status', 'voltooid')
@@ -311,8 +426,8 @@ test.describe('ontwikkelaarsmodus', () => {
     await expect(tile(page, 1)).toHaveAttribute('data-status', 'beschikbaar')
   })
 
-  test('vriendin-preview met voorbeeld-datum en altijd terug naar het paneel', async ({ page }) => {
-    await login(page, DEV, { at: '2026-11-16T12:00:00+01:00' })
+  test('preview met voorbeeld-datum toont de publieke kalender en altijd terug naar het paneel', async ({ page }) => {
+    await openDev(page, { at: '2026-11-16T12:00:00+01:00' })
     await page.getByLabel('Voorbeeld-datum').fill('2026-12-02')
     await page.getByText('Bekijk als vriendin op 2 december').click()
     await expect(page.getByTestId('badge-ontwikkelaar')).toContainText('preview')
@@ -320,9 +435,11 @@ test.describe('ontwikkelaarsmodus', () => {
     await expect(tile(page, 2)).toHaveAttribute('data-status', 'beschikbaar')
     await expect(tile(page, 3)).toHaveAttribute('data-status', 'gesloten')
     await expect(tile(page, 3)).toContainText('Opent op 3 december')
+    await expect(page.locator('.calendar')).not.toContainText('Geen inhoud')
 
     // Vanuit een dag in de preview terug naar het paneel
     await tile(page, 2).getByRole('button').click()
+    await expect(page).toHaveURL(/#\/dev\/dag\/2$/)
     await expect(page.getByRole('heading', { name: 'Zoek je verrassing' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Reset deze dag' })).toHaveCount(0)
     await page.getByRole('button', { name: 'Terug naar ontwikkelaarspaneel' }).click()

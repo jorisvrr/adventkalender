@@ -8,7 +8,7 @@ Persoonlijke adventskalender-webapp (Vite + React + TypeScript). Geen backend: v
 npm install
 npm run dev          # http://localhost:5173
 npm run dev:lan      # build + serveer op je netwerk (telefoon, zelfde wifi), poort 4173
-npm run build        # productiebuild in dist/
+npm run build        # typecheck + unit-tests + productiebuild in dist/ (stopt bij kapotte inhoud)
 npm run preview      # bekijk de build
 npm test             # unit-tests (rooster, datums, puzzel, codes)
 npm run test:e2e     # browsertests (Android- en iPhone-viewport)
@@ -20,10 +20,10 @@ Deployen kan als statische site (bijv. Vercel: framework Vite, output `dist`).
 
 ## Toegang
 
-- `3012`: vriendinmodus (vakjes openen vanaf N december 2026, Europe/Amsterdam).
-- `1502`: ontwikkelaarsmodus (alles open, eigen testvoortgang, paneel met voorbeeld-datum en resets).
+- **Publiek** (de link die je deelt): startpagina met één knop, "Open de kalender". Vakje N opent op N december 2026 (Europe/Amsterdam), ook directe links zoals `#/dag/5` blijven tot dan dicht. Een vakje zonder inhoud blijft publiek gesloten, ook na zijn datum.
+- **Ontwikkelaarsmodus**: `/#/dev`, code `1502`. Alles open, eigen testvoortgang, preview met voorbeeld-datum, resets en een inhoudsstatus (welke dagen nog leeg zijn, voorbeeldafbeelding, afbeeldingen die niet laden). Nergens publiek gelinkt.
 
-De codes zijn een eenvoudige toegangspoort, geen beveiliging: ze staan in de broncode.
+De modus volgt uit de route: publieke routes lezen nooit iets van een ontwikkelaarssessie. De code en alle inhoud staan wel in de JavaScript van de site; dit is een persoonlijke toegangspoort, geen beveiliging.
 
 ## Inhoud aanpassen
 
@@ -33,7 +33,7 @@ De codes zijn een eenvoudige toegangspoort, geen beveiliging: ze staan in de bro
 | Foto voor dag 3 | `DAG_3_FOTO` bovenaan `src/content/days.ts`; zet het bestand in `public/images/` (vierkant werkt het mooist) |
 | Jaar, tijdzone, codes, landingsteksten | `src/content/settings.ts` |
 
-Dag 4 t/m 24 toevoegen: zet een nieuw object in de `days`-lijst. Dagen die er niet in staan tonen automatisch "De verrassing wordt nog klaargemaakt". Een nieuw soort activiteit maak je in `src/games/` en koppel je in `src/games/registry.tsx`.
+Dag 4 t/m 24 toevoegen: zet een nieuw object in de `days`-lijst. Bestaande voortgang blijft staan. Dagen die er niet in staan blijven publiek gesloten; in `/#/dev` zie je welke nog leeg zijn. Een nieuw soort activiteit maak je in `src/games/` en koppel je in `src/games/registry.tsx`.
 
 Pas je het woordzoekerrooster aan, draai dan `npm test`: die controleert dat elk woord er precies één keer in staat. Opgeslagen voortgang van die dag hoort bij het oude rooster en wordt dan automatisch genegeerd (zie `contentKey` in `src/games/registry.tsx`).
 

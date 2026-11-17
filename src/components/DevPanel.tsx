@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { settings } from '../content/settings'
+import { contentImages, contentWarnings, formatRanges, missingDays } from '../lib/contentStatus'
 import type { DevSettings } from '../lib/storage'
 import { formatDayMonth, isValidDateKey } from '../lib/time'
 
@@ -16,6 +17,10 @@ export function DevPanel({ dev, onChange, onResetDay, onResetAll, completedCount
   const [confirming, setConfirming] = useState(false)
   const [notice, setNotice] = useState('')
 
+  const missing = missingDays()
+  const warnings = contentWarnings()
+  const brokenImages = useBrokenImages()
+
   const flash = (text: string) => {
     setNotice(text)
     window.setTimeout(() => setNotice((n) => (n === text ? '' : n)), 2500)
@@ -30,6 +35,32 @@ export function DevPanel({ dev, onChange, onResetDay, onResetAll, completedCount
         Alle vakjes zijn open om te testen. Testvoortgang ({completedCount} voltooid) staat los van de voortgang van je
         vriendin.
       </p>
+
+      <div className="dev-status" data-testid="inhoudsstatus">
+        <p className="dev-status-title">Inhoud</p>
+        <ul>
+          <li className={missing.length ? 'is-warning' : 'is-ok'}>
+            {missing.length ? (
+              <>
+                {settings.totalDays - missing.length} van {settings.totalDays} dagen ingevuld. Nog leeg:{' '}
+                <span className="nowrap">{formatRanges(missing)}</span>. Lege vakjes blijven publiek gesloten.
+              </>
+            ) : (
+              `Alle ${settings.totalDays} dagen zijn ingevuld.`
+            )}
+          </li>
+          {warnings.map((w) => (
+            <li key={`w${w.day}`} className="is-warning">
+              Dag {w.day} {w.text}.
+            </li>
+          ))}
+          {brokenImages.map((b) => (
+            <li key={`b${b.day}`} className="is-error">
+              Dag {b.day}: afbeelding niet gevonden ({b.src}).
+            </li>
+          ))}
+        </ul>
+      </div>
 
       <div className="dev-row">
         <label htmlFor="preview-date">Voorbeeld-datum</label>
@@ -107,4 +138,21 @@ export function DevPanel({ dev, onChange, onResetDay, onResetAll, completedCount
       </p>
     </section>
   )
+}
+
+/** Probeert elke afbeelding uit de inhoud te laden en geeft terug welke niet bestaan. */
+function useBrokenImages() {
+  const [broken, setBroken] = useState<{ day: number; src: string }[]>([])
+  useEffect(() => {
+    let cancelled = false
+    for (const img of contentImages()) {
+      const probe = new Image()
+      probe.onerror = () => !cancelled && setBroken((b) => [...b, img])
+      probe.src = img.src
+    }
+    return () => {
+      cancelled = true
+    }
+  }, [])
+  return broken
 }

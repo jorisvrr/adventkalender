@@ -11,23 +11,14 @@ export const settings = {
   totalDays: 24,
 
   /**
-   * Toegangscodes. Dit is een persoonlijke app: dit is een eenvoudige
-   * toegangspoort, geen echte beveiliging (de code staat in de broncode).
+   * Code voor de ontwikkelaarsmodus op /#/dev. Dit is een persoonlijke app: dit is een
+   * eenvoudige toegangspoort, geen echte beveiliging (de code staat in de broncode).
    */
-  codes: {
-    vriendin: '3012',
-    ontwikkelaar: '1502',
-  },
+  devCode: '1502',
 
   landing: {
     title: '24 dagen, speciaal voor jou',
     subtitle: 'Elke dag een kleine verrassing.',
     button: 'Open de kalender',
-    wrongCode: 'Deze code klopt niet helemaal. Probeer het nog eens.',
   },
-
-  /** Tekst in een vakje dat al open is maar nog geen inhoud heeft. */
-  placeholderText: 'De verrassing wordt nog klaargemaakt',
 } as const
-
-export type Mode = 'vriendin' | 'ontwikkelaar'

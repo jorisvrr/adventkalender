@@ -15,7 +15,6 @@ test.skip(({ browserName }) => browserName !== 'chromium', 'CDP-touch werkt alle
 async function login(page: Page, at: string) {
   await page.clock.setFixedTime(new Date(at))
   await page.goto('/')
-  await page.getByRole('textbox', { name: 'Code' }).fill('3012')
   await page.getByRole('button', { name: 'Open de kalender' }).click()
 }
 

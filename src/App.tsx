@@ -1,44 +1,76 @@
 import { useEffect, useState } from 'react'
-import { settings, type Mode } from './content/settings'
 import { Calendar } from './components/Calendar'
 import { DayView } from './components/DayView'
+import { DevGate } from './components/DevGate'
 import { DevPanel } from './components/DevPanel'
-import { getDay } from './content/days'
-import { contentKey } from './games/registry'
 import { Landing } from './components/Landing'
-import { loadMode, saveMode } from './lib/session'
+import { getDay } from './content/days'
+import { settings } from './content/settings'
+import { contentKey } from './games/registry'
+import { dayAccess } from './lib/access'
+import { clearLegacySession, loadDevUnlocked, saveDevUnlocked } from './lib/session'
 import { loadDevSettings, saveDevSettings, type DevSettings } from './lib/storage'
-import { formatDayMonth, isUnlocked, localDateKey } from './lib/time'
+import { formatDayMonth, localDateKey } from './lib/time'
 import { useNow } from './lib/useNow'
 import { useProgress } from './lib/useProgress'
-import { useRoute } from './lib/useRoute'
+import { useRoute, type Route } from './lib/useRoute'
 
+type Nav = ReturnType<typeof useRoute>
+
+/**
+ * De modus volgt uit de route, niet uit opgeslagen sessiegegevens:
+ * publieke routes tonen altijd de gewone kalender met datumvergrendeling.
+ */
 export function App() {
-  const [mode, setMode] = useState<Mode | null>(() => loadMode())
+  const nav = useRoute()
+  const { route } = nav
+  const [devUnlocked, setDevUnlocked] = useState(() => loadDevUnlocked())
 
-  const enter = (m: Mode) => {
-    saveMode(m)
-    setMode(m)
-    window.history.replaceState(null, '', '#/')
-    window.dispatchEvent(new HashChangeEvent('hashchange'))
-  }
-  const exit = () => {
-    saveMode(null)
-    setMode(null)
-    window.history.replaceState(null, '', window.location.pathname)
+  useEffect(() => clearLegacySession(), [])
+
+  useEffect(() => {
+    const base = settings.landing.title
+    document.title = route.view === 'dag' ? `Dag ${route.day} · ${base}` : route.dev ? `Ontwikkelaarsmodus · ${base}` : base
+  }, [route])
+
+  if (!route.dev) {
+    if (route.view === 'start') return <Landing onOpen={nav.openCalendar} />
+    return <CalendarApp key="publiek" dev={false} route={route} nav={nav} />
   }
 
-  if (!mode) return <Landing onEnter={enter} />
-  return <CalendarApp mode={mode} onExit={exit} />
+  if (!devUnlocked)
+    return (
+      <DevGate
+        onUnlock={() => {
+          saveDevUnlocked(true)
+          setDevUnlocked(true)
+        }}
+      />
+    )
+
+  const exitDev = () => {
+    saveDevUnlocked(false)
+    setDevUnlocked(false)
+    nav.toStart()
+  }
+  return <CalendarApp key="dev" dev route={route} nav={nav} onExit={exitDev} />
 }
 
-function CalendarApp({ mode, onExit }: { mode: Mode; onExit: () => void }) {
+interface CalendarAppProps {
+  dev: boolean
+  route: Route
+  nav: Nav
+  onExit?: () => void
+}
+
+function CalendarApp({ dev: isDev, route, nav, onExit }: CalendarAppProps) {
   const now = useNow()
   const realToday = localDateKey(now)
-  const { route, openDay, toCalendar } = useRoute()
-  const isDev = mode === 'ontwikkelaar'
 
-  const [dev, setDevState] = useState<DevSettings>(() => loadDevSettings(`${settings.year}-12-01`))
+  // Ontwikkelaarsinstellingen worden alleen in ontwikkelaarsmodus gelezen.
+  const [dev, setDevState] = useState<DevSettings>(() =>
+    isDev ? loadDevSettings(`${settings.year}-12-01`) : { previewDate: realToday, previewAsFriend: false },
+  )
   const setDev = (next: DevSettings) => {
     setDevState(next)
     saveDevSettings(next)
@@ -48,17 +80,13 @@ function CalendarApp({ mode, onExit }: { mode: Mode; onExit: () => void }) {
   const locksActive = !isDev || previewing
   const todayKey = previewing ? dev.previewDate : realToday
   const progress = useProgress(isDev ? 'test' : 'vriendin', contentKeyFor)
-  const unlocked = (day: number) => !locksActive || isUnlocked(day, todayKey)
+  const access = (day: number) => dayAccess(day, todayKey, !locksActive)
 
   const completedCount = Object.values(progress.progress).filter((p) => p.completed).length
 
-  useEffect(() => {
-    document.title = route.name === 'dag' ? `Dag ${route.day} · ${settings.landing.title}` : settings.landing.title
-  }, [route])
-
   const backToDevPanel = () => {
     setDev({ ...dev, previewAsFriend: false })
-    if (route.name === 'dag') toCalendar()
+    if (route.view === 'dag') nav.toCalendar(true)
   }
 
   return (
@@ -72,24 +100,26 @@ function CalendarApp({ mode, onExit }: { mode: Mode; onExit: () => void }) {
             </p>
           )}
         </div>
-        <button type="button" className="btn btn-small btn-quiet" onClick={onExit}>
-          Afsluiten
-        </button>
+        {onExit && (
+          <button type="button" className="btn btn-small btn-quiet" onClick={onExit}>
+            Afsluiten
+          </button>
+        )}
       </header>
 
-      {route.name === 'dag' ? (
+      {route.view === 'dag' ? (
         <DayView
-          key={`${route.day}-${isDev}`}
+          key={route.day}
           day={route.day}
-          unlocked={unlocked(route.day)}
+          access={access(route.day)}
           progress={progress}
-          onBack={toCalendar}
+          onBack={() => nav.toCalendar(isDev)}
           devTools={isDev && !previewing}
         />
       ) : (
         <main className="calendar-view">
           <h1 className="calendar-title">{settings.landing.title}</h1>
-          <p className="calendar-intro">{introText(locksActive, todayKey)}</p>
+          <p className="calendar-intro">{introText(locksActive, todayKey, access)}</p>
 
           {isDev && !previewing && (
             <DevPanel
@@ -104,15 +134,16 @@ function CalendarApp({ mode, onExit }: { mode: Mode; onExit: () => void }) {
           <Calendar
             todayKey={todayKey}
             locksActive={locksActive}
+            showTechnical={isDev && !previewing}
             progress={progress.progress}
-            isUnlocked={unlocked}
-            onOpen={openDay}
+            access={access}
+            onOpen={(day) => nav.openDay(isDev, day)}
           />
         </main>
       )}
 
       {previewing && (
-        <div className="preview-bar" role="region" aria-label="Vriendin-preview">
+        <div className="preview-bar" role="region" aria-label="Preview">
           <span>
             Preview als vriendin · <strong>{formatDayMonth(dev.previewDate)}</strong>
           </span>
@@ -127,11 +158,14 @@ function CalendarApp({ mode, onExit }: { mode: Mode; onExit: () => void }) {
 
 const contentKeyFor = (day: number) => contentKey(getDay(day))
 
-function introText(locksActive: boolean, todayKey: string): string {
-  if (!locksActive) return 'Elke dag een kleine verrassing.'
+function introText(locksActive: boolean, todayKey: string, access: (day: number) => { openable: boolean }): string {
+  if (!locksActive) return 'Alle vakjes staan open om te testen.'
   const first = `${settings.year}-12-01`
   const last = `${settings.year}-12-${String(settings.totalDays).padStart(2, '0')}`
-  if (todayKey < first) return 'Op 1 december gaat het eerste vakje open. Nog heel even.'
+  if (todayKey < first) return 'Op 1 december gaat het eerste vakje open.'
   if (todayKey > last) return 'Alle vakjes zijn open. Je kunt alles nog eens teruglezen.'
-  return `Vandaag is het ${formatDayMonth(todayKey)}. Vakje ${Number(todayKey.slice(8))} is open.`
+  const today = Number(todayKey.slice(8))
+  return access(today).openable
+    ? `Vandaag is het ${formatDayMonth(todayKey)}. Vakje ${today} is open.`
+    : `Vandaag is het ${formatDayMonth(todayKey)}.`
 }

@@ -6,7 +6,7 @@ export default defineConfig({
   fullyParallel: true,
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:4173',
+    baseURL: 'http://localhost:4317',
     locale: 'nl-NL',
     timezoneId: 'Europe/Amsterdam',
   },
@@ -15,8 +15,8 @@ export default defineConfig({
     { name: 'iphone', use: { ...devices['iPhone 14'] } },
   ],
   webServer: {
-    command: 'node node_modules/vite/bin/vite.js preview --port 4173 --strictPort',
-    url: 'http://localhost:4173',
+    command: 'node node_modules/vite/bin/vite.js preview --port 4317 --strictPort',
+    url: 'http://localhost:4317',
     reuseExistingServer: false,
   },
 })

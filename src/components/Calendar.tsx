@@ -1,7 +1,7 @@
 import { settings } from '../content/settings'
-import { getDay } from '../content/days'
-import { formatDayMonth, opensOn } from '../lib/time'
+import type { DayAccess } from '../lib/access'
 import type { Progress } from '../lib/storage'
+import { formatDayMonth, opensOn } from '../lib/time'
 
 export type TileStatus = 'gesloten' | 'beschikbaar' | 'voltooid'
 
@@ -9,48 +9,56 @@ interface Props {
   todayKey: string
   /** false = ontwikkelaarsmodus zonder preview: niets is op slot. */
   locksActive: boolean
+  /** Alleen in ontwikkelaarsmodus: toon technische status (zoals ontbrekende inhoud). */
+  showTechnical: boolean
   progress: Progress
-  isUnlocked: (day: number) => boolean
+  access: (day: number) => DayAccess
   onOpen: (day: number) => void
 }
 
-export function Calendar({ todayKey, locksActive, progress, isUnlocked, onOpen }: Props) {
+export function Calendar({ todayKey, locksActive, showTechnical, progress, access, onOpen }: Props) {
   const daysList = Array.from({ length: settings.totalDays }, (_, i) => i + 1)
 
   return (
     <ol className="calendar" aria-label="Adventskalender">
       {daysList.map((day) => {
-        const open = isUnlocked(day)
+        const a = access(day)
         const done = progress[day]?.completed === true
-        const status: TileStatus = !open ? 'gesloten' : done ? 'voltooid' : 'beschikbaar'
+        const status: TileStatus = !a.openable ? 'gesloten' : done ? 'voltooid' : 'beschikbaar'
         const isToday = locksActive && opensOn(day) === todayKey
-        const placeholder = getDay(day).type === 'placeholder'
         const style = { '--i': day } as React.CSSProperties
 
         if (status === 'gesloten') {
           return (
             <li key={day} className="tile-slot" data-day={day} data-status={status} style={style}>
               <div className="tile is-locked">
-                <span className="tile-number" aria-hidden="true">{day}</span>
+                <span className="tile-number" aria-hidden="true">
+                  {day}
+                </span>
                 <span className="tile-lock">
                   <LockIcon />
                 </span>
                 <span className="tile-meta tile-meta-locked">
-                  <span className="visually-hidden">Dag {day}: </span>
-                  <span>Opent op</span> <span className="nowrap">{formatDayMonth(opensOn(day))}</span>
+                  <span className="visually-hidden">Dag {day}{a.dateReached ? ', gesloten' : ': '}</span>
+                  {!a.dateReached && (
+                    <>
+                      <span>Opent op</span> <span className="nowrap">{formatDayMonth(opensOn(day))}</span>
+                    </>
+                  )}
                 </span>
               </div>
             </li>
           )
         }
 
+        const missing = showTechnical && !a.hasContent
         return (
           <li key={day} style={style} data-day={day} data-status={status} className="tile-slot">
             <button
               type="button"
-              className={`tile is-${status} tone-${day % 3} ${isToday ? 'is-today' : ''} ${placeholder ? 'is-placeholder' : ''}`}
+              className={`tile is-${status} tone-${day % 3} ${isToday ? 'is-today' : ''} ${missing ? 'is-missing' : ''}`}
               onClick={() => onOpen(day)}
-              aria-label={`Dag ${day}${status === 'voltooid' ? ', voltooid' : ', beschikbaar'}${isToday ? ', vandaag' : ''}`}
+              aria-label={`Dag ${day}${status === 'voltooid' ? ', voltooid' : ''}${isToday ? ', vandaag' : ''}${missing ? ', nog geen inhoud' : ''}`}
             >
               <span className="tile-number">{day}</span>
               <span className="tile-meta">
@@ -58,10 +66,12 @@ export function Calendar({ todayKey, locksActive, progress, isUnlocked, onOpen }
                   <>
                     <CheckIcon /> <span>Voltooid</span>
                   </>
+                ) : missing ? (
+                  <span>Geen inhoud</span>
                 ) : isToday ? (
                   <span>Vandaag</span>
                 ) : (
-                  <span>{placeholder && !locksActive ? 'Placeholder' : 'Open mij'}</span>
+                  <span>Open mij</span>
                 )}
               </span>
             </button>

@@ -1,21 +1,21 @@
 import { useState } from 'react'
 import { getDay } from '../content/days'
-import { settings } from '../content/settings'
 import { GameForDay } from '../games/registry'
+import type { DayAccess } from '../lib/access'
 import type { ProgressApi } from '../lib/useProgress'
 import { formatDayMonth, opensOn } from '../lib/time'
 import { LockIcon } from './Calendar'
 
 interface Props {
   day: number
-  unlocked: boolean
+  access: DayAccess
   progress: ProgressApi
   onBack: () => void
   /** Alleen in ontwikkelaarsmodus (zonder preview). */
   devTools: boolean
 }
 
-export function DayView({ day, unlocked, progress, onBack, devTools }: Props) {
+export function DayView({ day, access, progress, onBack, devTools }: Props) {
   const config = getDay(day)
   const entry = progress.get(day)
   const [version, setVersion] = useState(0)
@@ -41,19 +41,22 @@ export function DayView({ day, unlocked, progress, onBack, devTools }: Props) {
           Dag {day} · {formatDayMonth(opensOn(day))}
         </p>
 
-        {!unlocked ? (
+        {!access.openable ? (
+          // Ook via een directe link: geen inhoud vóór de openingsdatum.
           <div className="day-empty">
             <span className="day-empty-icon">
               <LockIcon />
             </span>
             <h1 className="day-title">Nog even geduld</h1>
-            <p>Dit vakje opent op {formatDayMonth(opensOn(day))}.</p>
+            <p>{access.dateReached ? 'Dit vakje is nog dicht.' : `Dit vakje opent op ${formatDayMonth(opensOn(day))}.`}</p>
           </div>
         ) : config.type === 'placeholder' ? (
-          <div className="day-empty">
-            <span className="day-empty-icon" aria-hidden="true">✦</span>
-            <h1 className="day-title">{settings.placeholderText}</h1>
-            <p>Kom later nog eens kijken.</p>
+          // Alleen bereikbaar in ontwikkelaarsmodus: publiek is een leeg vakje gesloten.
+          <div className="day-empty dev-missing">
+            <h1 className="day-title">Nog geen inhoud</h1>
+            <p>
+              Voeg dag {day} toe in <code>src/content/days.ts</code>. Publiek blijft dit vakje gesloten tot er inhoud staat.
+            </p>
           </div>
         ) : (
           <>

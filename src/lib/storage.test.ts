@@ -25,3 +25,16 @@ describe('opgeslagen voortgang na een inhoudswijziging', () => {
     expect(sanitizeProgress(p, keyFor)).toEqual(p)
   })
 })
+
+describe('dagen aanvullen', () => {
+  it('een nieuwe dag toevoegen laat bestaande voortgang staan', () => {
+    const p: Progress = {
+      1: { completed: true },
+      2: { completed: true, state: { found: [], solved: true }, contentKey: keyFor(2) },
+      3: { completed: true },
+    }
+    // Simuleer dat dag 4 en 5 inhoud krijgen (ook een type mét contentKey).
+    const later = (day: number) => (day === 4 ? 'woordzoeker:nieuw' : day === 5 ? undefined : keyFor(day))
+    expect(sanitizeProgress(p, later)).toEqual(p)
+  })
+})

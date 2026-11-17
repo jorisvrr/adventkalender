@@ -460,8 +460,10 @@ button {
 .tile.is-beschikbaar.tone-2::after {
   background: rgb(158 27 42 / 0.12);
 }
-.tile.is-placeholder .tile-meta {
-  opacity: 0.8;
+/* Alleen in ontwikkelaarsmodus: vakje zonder inhoud */
+.tile.is-missing {
+  opacity: 0.55;
+  border: 1.5px dashed currentColor;
 }
 .tile.is-today {
   box-shadow: 0 0 0 3px var(--cream), 0 0 0 5px var(--gold), var(--shadow);
@@ -891,6 +893,40 @@ button.tile:active {
   font-size: 16px;
   color: var(--green);
 }
+.dev-status {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  border: 1px solid var(--line);
+}
+.dev-status-title {
+  margin: 0 0 4px;
+  font-weight: 700;
+  color: var(--green);
+}
+.dev-status ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.dev-status li + li {
+  margin-top: 4px;
+}
+.dev-status .is-warning {
+  color: #8a5a12;
+}
+.dev-status .is-error {
+  color: var(--red);
+  font-weight: 600;
+}
+.dev-status .is-ok {
+  color: var(--green-2);
+}
+.dev-missing code {
+  font-size: 0.9em;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--cream-2);
+}
 .dev-note {
   margin: 0;
   color: var(--green-2);
@@ -1063,4 +1099,9 @@ button.tile:active {
     animation-delay: 0ms !important;
     transition-duration: 1ms !important;
   }
+}
+
+.landing-title-small {
+  font-size: clamp(30px, 8vw, 40px);
+  margin-bottom: 28px;
 }

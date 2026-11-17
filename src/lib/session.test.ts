@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { modeForCode } from './session'
+import { isDevCode } from './session'
 
-describe('toegangscodes', () => {
-  it('koppelt codes aan modi', () => {
-    expect(modeForCode('3012')).toBe('vriendin')
-    expect(modeForCode('1502')).toBe('ontwikkelaar')
-    expect(modeForCode('1234')).toBeNull()
-    expect(modeForCode('')).toBeNull()
+describe('ontwikkelaarscode', () => {
+  it('accepteert alleen 1502', () => {
+    expect(isDevCode('1502')).toBe(true)
+    expect(isDevCode(' 1502 ')).toBe(true)
+    expect(isDevCode('3012')).toBe(false)
+    expect(isDevCode('')).toBe(false)
   })
 })
