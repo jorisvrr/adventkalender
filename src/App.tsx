@@ -93,7 +93,7 @@ function CalendarApp({ dev: isDev, route, nav, onExit }: CalendarAppProps) {
     <div className={`app ${previewing ? 'has-preview-bar' : ''}`}>
       <header className="app-header">
         <div className="app-header-text">
-          <p className="app-kicker">Adventskalender</p>
+          {route.view === 'dag' ? <p className="app-kicker">Adventskalender</p> : <h1 className="app-kicker">Adventskalender</h1>}
           {isDev && (
             <p className="badge-dev" data-testid="badge-ontwikkelaar">
               Ontwikkelaarsmodus{previewing ? ' · preview' : ''}
@@ -118,9 +118,6 @@ function CalendarApp({ dev: isDev, route, nav, onExit }: CalendarAppProps) {
         />
       ) : (
         <main className="calendar-view">
-          <h1 className="calendar-title">{settings.landing.title}</h1>
-          <p className="calendar-intro">{introText(locksActive, todayKey, access)}</p>
-
           {isDev && !previewing && (
             <DevPanel
               dev={dev}
@@ -157,15 +154,3 @@ function CalendarApp({ dev: isDev, route, nav, onExit }: CalendarAppProps) {
 }
 
 const contentKeyFor = (day: number) => contentKey(getDay(day))
-
-function introText(locksActive: boolean, todayKey: string, access: (day: number) => { openable: boolean }): string {
-  if (!locksActive) return 'Alle vakjes staan open om te testen.'
-  const first = `${settings.year}-12-01`
-  const last = `${settings.year}-12-${String(settings.totalDays).padStart(2, '0')}`
-  if (todayKey < first) return 'Op 1 december gaat het eerste vakje open.'
-  if (todayKey > last) return 'Alle vakjes zijn open. Je kunt alles nog eens teruglezen.'
-  const today = Number(todayKey.slice(8))
-  return access(today).openable
-    ? `Vandaag is het ${formatDayMonth(todayKey)}. Vakje ${today} is open.`
-    : `Vandaag is het ${formatDayMonth(todayKey)}.`
-}

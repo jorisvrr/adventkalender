@@ -18,7 +18,6 @@ export const settings = {
 
   landing: {
     title: '24 dagen, speciaal voor jou',
-    subtitle: 'Elke dag een kleine verrassing.',
     button: 'Open de kalender',
   },
 } as const

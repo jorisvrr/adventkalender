@@ -2,7 +2,6 @@ import { expect, test, type Page } from '@playwright/test'
 import { contentWarnings, formatRanges, missingDays } from '../../src/lib/contentStatus'
 
 const DEV = '1502'
-const TITLE = '24 dagen, speciaal voor jou'
 
 /** Publieke ervaring: startpagina → "Open de kalender". */
 async function openPublic(page: Page, { at }: { at?: string } = {}) {
@@ -56,6 +55,14 @@ async function expectCleanPublicText(page: Page) {
   await expect(page.locator('a[href*="dev"]')).toHaveCount(0)
 }
 
+/** Kalenderpagina: alleen "ADVENTSKALENDER" en de vakjes, geen titel of introtekst. */
+async function expectOnlyCalendar(page: Page) {
+  expect((await visibleText(page, '.app-header')).toUpperCase()).toBe('ADVENTSKALENDER')
+  const main = await visibleText(page, 'main')
+  const tiles = await visibleText(page, '.calendar')
+  expect(main).toBe(tiles)
+}
+
 async function expectLockedDay(page: Page, day: number, opensText: string) {
   await expect(page.getByRole('heading', { name: 'Nog even geduld' })).toBeVisible()
   await expect(page.getByText(opensText)).toBeVisible()
@@ -78,8 +85,9 @@ async function useDevSessionFirst(page: Page) {
 test.describe('publieke toegang', () => {
   test('startpagina: één knop, geen codeveld en geen verwijzing naar de ontwikkelaarsmodus', async ({ page }) => {
     await page.goto('/')
-    await expect(page.getByRole('heading', { name: TITLE })).toBeVisible()
-    await expect(page.getByText('Elke dag een kleine verrassing.')).toBeVisible()
+    // Alleen de knop: geen andere zichtbare tekst, geen hartje of andere afbeelding.
+    expect(await visibleText(page, 'body')).toBe('Open de kalender')
+    await expect(page.locator('svg, img')).toHaveCount(0)
     await expect(page.getByRole('button')).toHaveCount(1)
     await expect(page.getByRole('button', { name: 'Open de kalender' })).toBeVisible()
     await expect(page.getByRole('textbox')).toHaveCount(0)
@@ -99,7 +107,7 @@ test.describe('publieke toegang', () => {
 
   test('vóór 1 december (schone sessie): alles dicht, alleen nummer, slotje en openingsdatum', async ({ page }) => {
     await openPublic(page, { at: '2026-11-17T12:00:00+01:00' })
-    await expect(page.locator('.calendar-intro')).toHaveText('Op 1 december gaat het eerste vakje open.')
+    await expectOnlyCalendar(page)
     for (let d = 1; d <= 24; d++) {
       await expect(tile(page, d)).toHaveAttribute('data-status', 'gesloten')
       await expect(tile(page, d).locator('svg')).toHaveCount(1)
@@ -135,7 +143,7 @@ test.describe('publieke toegang', () => {
     await openPublic(page, { at: '2026-11-30T23:30:00Z' }) // = 00:30 in Amsterdam
     await expect(tile(page, 1)).toHaveAttribute('data-status', 'beschikbaar')
     await expect(tile(page, 2)).toHaveAttribute('data-status', 'gesloten')
-    await expect(page.locator('.calendar-intro')).toHaveText('Vandaag is het 1 december. Vakje 1 is open.')
+    await expectOnlyCalendar(page)
   })
 
   test('op 3 december: 1–3 open, 4 dicht', async ({ page }) => {
@@ -153,7 +161,7 @@ test.describe('publieke toegang', () => {
     await openPublic(page, { at: `2026-12-${String(d).padStart(2, '0')}T12:00:00+01:00` })
     await expect(tile(page, d)).toHaveAttribute('data-status', 'gesloten')
     expect(await visibleText(page, `.calendar [data-day="${d}"]`)).toBe(String(d))
-    await expect(page.locator('.calendar-intro')).toHaveText(`Vandaag is het ${d} december.`)
+    await expectOnlyCalendar(page)
     await expectCleanPublicText(page)
     await page.goto(`/#/dag/${d}`)
     await expectLockedDay(page, d, 'Dit vakje is nog dicht.')
@@ -168,7 +176,7 @@ test.describe('publieke toegang', () => {
     await expect(page.getByRole('button', { name: 'Open de kalender' })).toBeVisible()
     await expect(page.getByRole('textbox')).toHaveCount(0)
     await page.getByRole('button', { name: 'Open de kalender' }).click()
-    await expect(page.locator('.calendar-intro')).toHaveText('Op 1 december gaat het eerste vakje open.')
+    await expectOnlyCalendar(page)
     await expect(tile(page, 1)).toHaveAttribute('data-status', 'gesloten')
     await expect(page.getByRole('region', { name: 'Preview' })).toHaveCount(0)
     await expectCleanPublicText(page)

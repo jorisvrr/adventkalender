@@ -206,30 +206,6 @@ button {
   text-align: center;
   position: relative;
 }
-.landing::before {
-  content: '';
-  position: absolute;
-  inset: 16px;
-  border: 1px solid var(--line);
-  border-radius: 28px;
-  pointer-events: none;
-}
-.landing-ornament {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  color: var(--red);
-  margin-bottom: 22px;
-  animation: rise 900ms var(--ease) both;
-}
-.landing-ornament span {
-  width: 44px;
-  height: 1px;
-  background: var(--gold);
-}
-.landing-ornament svg {
-  animation: beat 2.8s ease-in-out 1.2s infinite;
-}
 .landing-title {
   font-family: var(--font-display);
   font-weight: 500;
@@ -242,12 +218,6 @@ button {
   text-wrap: balance;
   font-variation-settings: 'SOFT' 100;
   animation: rise 900ms var(--ease) 80ms both;
-}
-.landing-subtitle {
-  margin: 14px 0 36px;
-  color: var(--muted);
-  font-size: 18px;
-  animation: rise 900ms var(--ease) 160ms both;
 }
 .landing-form {
   width: 100%;
@@ -337,22 +307,7 @@ button {
 
 /* ---------- Kalender ---------- */
 .calendar-view {
-  padding-top: 8px;
-}
-.calendar-title {
-  font-family: var(--font-display);
-  font-weight: 500;
-  font-size: clamp(30px, 8vw, 44px);
-  line-height: 1.08;
-  letter-spacing: -0.02em;
-  color: var(--green);
-  margin: 4px 0 8px;
-  text-wrap: balance;
-  font-variation-settings: 'SOFT' 100;
-}
-.calendar-intro {
-  margin: 0 0 22px;
-  color: var(--muted);
+  padding-top: 12px;
 }
 .calendar {
   list-style: none;
@@ -1070,18 +1025,6 @@ button.tile:active {
   40%,
   80% {
     transform: translateX(7px);
-  }
-}
-@keyframes beat {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  10% {
-    transform: scale(1.18);
-  }
-  20% {
-    transform: scale(1);
   }
 }
 @keyframes glow {
