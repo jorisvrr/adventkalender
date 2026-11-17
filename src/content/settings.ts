@@ -16,6 +16,9 @@ export const settings = {
    */
   devCode: '1502',
 
+  /** Tekst in het browsertabblad (op alle publieke pagina's). Ook aanpassen in index.html. */
+  pageTitle: 'Adventkalender voor Nien',
+
   landing: {
     title: '24 dagen, speciaal voor jou',
     button: 'Open de kalender',

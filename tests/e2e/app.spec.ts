@@ -85,6 +85,7 @@ async function useDevSessionFirst(page: Page) {
 test.describe('publieke toegang', () => {
   test('startpagina: één knop, geen codeveld en geen verwijzing naar de ontwikkelaarsmodus', async ({ page }) => {
     await page.goto('/')
+    await expect(page).toHaveTitle('Adventkalender voor Nien')
     // Alleen de knop: geen andere zichtbare tekst, geen hartje of andere afbeelding.
     expect(await visibleText(page, 'body')).toBe('Open de kalender')
     await expect(page.locator('svg, img')).toHaveCount(0)
@@ -137,6 +138,7 @@ test.describe('publieke toegang', () => {
     await expectLockedDay(page, 3, 'Dit vakje opent op 3 december.')
     await page.goto('/#/dag/2')
     await expect(page.getByRole('heading', { name: 'Zoek je verrassing' })).toBeVisible()
+    await expect(page).toHaveTitle('Adventkalender voor Nien')
   })
 
   test('middernacht Amsterdamse tijd opent dag 1', async ({ page }) => {

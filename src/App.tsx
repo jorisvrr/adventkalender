@@ -29,8 +29,7 @@ export function App() {
   useEffect(() => clearLegacySession(), [])
 
   useEffect(() => {
-    const base = settings.landing.title
-    document.title = route.view === 'dag' ? `Dag ${route.day} · ${base}` : route.dev ? `Ontwikkelaarsmodus · ${base}` : base
+    document.title = route.dev ? `Ontwikkelaarsmodus · ${settings.pageTitle}` : settings.pageTitle
   }, [route])
 
   if (!route.dev) {
