@@ -458,3 +458,180 @@ test.describe('ontwikkelaarsmodus', () => {
     await noHorizontalScroll(page)
   })
 })
+
+test.describe("foto-dagen", () => {
+  const ADVENT = [
+    'dag-03-puzzel-selfie.jpeg',
+    'dag-06-memory-01-water-huizen.jpeg',
+    'dag-06-memory-02-broodje.jpeg',
+    'dag-06-memory-03-pizza-eten.jpeg',
+    'dag-06-memory-04-pizzas.jpeg',
+    'dag-06-memory-05-boot.jpeg',
+    'dag-06-memory-06-stadion.jpeg',
+    'dag-17-close-up-01-burrata.jpeg',
+    'dag-17-close-up-02-sushi.jpeg',
+    'dag-17-close-up-03-jij.jpeg',
+    'dag-20-puzzel-pasta.jpeg',
+    'dag-24-finale-eiffeltoren.jpeg',
+  ]
+
+  test('alle 12 foto’s laden, staand en niet gedraaid', async ({ page }) => {
+    await page.goto('/')
+    const sizes = await page.evaluate(
+      (files) =>
+        Promise.all(
+          files.map(
+            (f) =>
+              new Promise<[string, number, number]>((resolve, reject) => {
+                const img = new Image()
+                img.onload = () => resolve([f, img.naturalWidth, img.naturalHeight])
+                img.onerror = () => reject(new Error(`${f} laadt niet`))
+                img.src = `/images/advent/${f}`
+              }),
+          ),
+        ),
+      ADVENT,
+    )
+    for (const [f, w, h] of sizes) expect(h, `${f} hoort staand te zijn`).toBeGreaterThan(w)
+  })
+
+  test('dag 20: puzzel volgt de staande foto en lost op tot de volledige foto', async ({ page }) => {
+    await openDev(page)
+    await page.goto('/#/dev/dag/20')
+    await expect(page.getByRole('heading', { name: 'Nog meer stukjes' })).toBeVisible()
+    await expect(page.locator('.puzzle-tile img').first()).toHaveAttribute('src', '/images/advent/dag-20-puzzel-pasta.jpeg')
+    // Tegels in de verhouding van de foto (3:4), niet vierkant.
+    await expect.poll(async () => {
+      const b = (await page.locator('[data-slot="0"]').boundingBox())!
+      return Math.round((b.width / b.height) * 100) / 100
+    }).toBeCloseTo(0.75, 1)
+    await page.getByRole('button', { name: 'Bekijk het voorbeeld' }).click()
+    await expect(page.getByRole('button', { name: 'Voorbeeld sluiten' })).toBeVisible()
+    await page.getByRole('button', { name: 'Voorbeeld sluiten' }).click()
+    await solvePuzzle(page)
+    const done = page.getByTestId('puzzel-klaar')
+    await expect(done).toContainText('Puzzel compleet!')
+    const img = done.locator('img')
+    await expect(img).toHaveAttribute('src', '/images/advent/dag-20-puzzel-pasta.jpeg')
+    const box = (await img.boundingBox())!
+    expect(box.height / box.width).toBeCloseTo(1536 / 1152, 1) // hele foto, niet bijgesneden
+    await page.reload()
+    await expect(page.getByTestId('puzzel-klaar')).toBeVisible()
+  })
+
+  test('dag 6: memory met zes paren, verkeerd paar draait terug, pogingen tellen', async ({ page }) => {
+    await openDev(page)
+    await page.goto('/#/dev/dag/6')
+    const cards = page.locator('.memory-card')
+    await expect(cards).toHaveCount(12)
+    for (let p = 0; p < 6; p++) await expect(page.locator(`.memory-card[data-pair="${p}"]`)).toHaveCount(2)
+
+    // Drie kolommen op mobiel.
+    const tops = await cards.evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)))
+    expect(new Set(tops).size).toBe(4)
+
+    // Verkeerd paar: beide open, extra tik genegeerd, daarna weer dicht.
+    await page.locator('.memory-card[data-pair="0"]').first().click()
+    await page.locator('.memory-card[data-pair="1"]').first().click()
+    await expect(page.locator('.memory-card.is-up')).toHaveCount(2)
+    await page.locator('.memory-card[data-pair="2"]').first().click()
+    await expect(page.locator('.memory-card.is-up')).toHaveCount(2)
+    await expect(page.locator('.memory-card.is-up')).toHaveCount(0, { timeout: 3000 })
+    await expect(page.locator('.memory-status')).toContainText('1 poging')
+
+    // Halverwege herladen: gevonden paren en pogingen blijven bewaard.
+    for (const p of [0, 1, 2]) {
+      await page.locator(`.memory-card[data-pair="${p}"]`).nth(0).click()
+      await page.locator(`.memory-card[data-pair="${p}"]`).nth(1).click()
+    }
+    await page.reload()
+    await expect(page.locator('.memory-card.is-matched')).toHaveCount(6)
+    await expect(page.locator('.memory-status')).toContainText('3 van 6 paren · 4 pogingen')
+
+    for (const p of [3, 4, 5]) {
+      await page.locator(`.memory-card[data-pair="${p}"]`).nth(0).click()
+      await page.locator(`.memory-card[data-pair="${p}"]`).nth(1).click()
+    }
+    await expect(page.getByTestId('memory-klaar')).toHaveText('Alle paren gevonden! In 7 pogingen.')
+    await expect(page.locator('.memory-card.is-matched')).toHaveCount(12)
+    await page.reload()
+    await expect(page.getByTestId('memory-klaar')).toHaveText('Alle paren gevonden! In 7 pogingen.')
+  })
+
+  test('dag 17: drie close-ups, uitzoomen, fout mag opnieuw, daarna voltooid', async ({ page }) => {
+    await openDev(page)
+    await page.goto('/#/dev/dag/17')
+    await expect(page.getByRole('heading', { name: 'Wat zie je hier?' })).toBeVisible()
+    const frame = page.getByTestId('closeup-foto')
+    const rounds = [
+      { img: 'dag-17-close-up-01-burrata.jpeg', wrong: 'Risotto', answer: 'Burrata' },
+      { img: 'dag-17-close-up-02-sushi.jpeg', wrong: 'Noedels', answer: 'Sushi' },
+      { img: 'dag-17-close-up-03-jij.jpeg', wrong: 'Joris', answer: 'Jij' },
+    ]
+    for (const [i, r] of rounds.entries()) {
+      await expect(page.locator('.closeup-round')).toHaveText(`Ronde ${i + 1} van 3`)
+      await expect(frame.locator('img')).toHaveAttribute('src', `/images/advent/${r.img}`)
+      expect(Number(await frame.getAttribute('data-zoom'))).toBeGreaterThan(1)
+
+      if (i === 0) {
+        // Stapsgewijs uitzoomen tot de hele foto.
+        const zooms = [Number(await frame.getAttribute('data-zoom'))]
+        const zoomOut = page.getByRole('button', { name: 'Zoom uit' })
+        while (await zoomOut.isEnabled()) {
+          await zoomOut.click()
+          zooms.push(Number(await frame.getAttribute('data-zoom')))
+        }
+        expect(zooms.at(-1)).toBe(1)
+        expect(zooms.every((z, k) => k === 0 || z < zooms[k - 1])).toBe(true)
+      }
+
+      await page.getByRole('button', { name: r.wrong, exact: true }).click()
+      await expect(page.getByText('Nee, dat is het niet. Probeer het nog eens.')).toBeVisible()
+      await expect(page.getByRole('button', { name: r.wrong, exact: true })).toBeDisabled()
+      await page.getByRole('button', { name: r.answer, exact: true }).click()
+      await expect(page.getByText('Goed geraden!')).toBeVisible()
+      await expect(frame).toHaveAttribute('data-zoom', '1')
+
+      if (i === 1) {
+        // Herladen na een goed antwoord: ronde blijft goed.
+        await page.reload()
+        await expect(page.getByText('Goed geraden!')).toBeVisible()
+      }
+      await page.getByRole('button', { name: 'Volgende' }).click()
+    }
+    await expect(page.getByTestId('closeup-klaar')).toHaveText('Alle drie goed geraden!')
+    await page.getByRole('button', { name: 'Terug naar de kalender' }).click()
+    await expect(tile(page, 17)).toHaveAttribute('data-status', 'voltooid')
+  })
+
+  test('dag 24: het pakje onthult de Eiffeltorenfoto met de tekst', async ({ page }) => {
+    await openPublic(page, { at: '2026-12-24T08:00:00+01:00' })
+    await tile(page, 24).getByRole('button').click()
+    await expect(page.getByRole('heading', { name: 'Het laatste pakje' })).toBeVisible()
+    await page.getByRole('button', { name: 'Tik op het pakje' }).click()
+    const open = page.getByTestId('cadeau-open')
+    await expect(open).toHaveText('Fijne kerst, lieverd.')
+    await expect(open.locator('img')).toHaveAttribute('src', '/images/advent/dag-24-finale-eiffeltoren.jpeg')
+    await expect.poll(() => open.locator('img').evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth > 0)).toBe(true)
+    await page.reload()
+    await expect(page.getByTestId('cadeau-open')).toBeVisible()
+    await page.getByRole('button', { name: 'Terug naar de kalender' }).click()
+    await expect(tile(page, 24)).toHaveAttribute('data-status', 'voltooid')
+  })
+
+  test('publiek: foto-dagen volgen de datum, ook via directe links', async ({ page }) => {
+    await page.clock.setFixedTime(new Date('2026-12-16T23:59:00+01:00'))
+    await page.goto('/#/kalender')
+    await expect(tile(page, 6)).toHaveAttribute('data-status', 'beschikbaar')
+    for (const d of [17, 20, 24]) {
+      await expect(tile(page, d)).toHaveAttribute('data-status', 'gesloten')
+      await page.goto(`/#/dag/${d}`)
+      await expectLockedDay(page, d, `Dit vakje opent op ${d} december.`)
+      await expect(page.locator('.closeup, .memory, .gift, .puzzle')).toHaveCount(0)
+      await page.goto('/#/kalender')
+    }
+    await page.goto('/#/dag/6')
+    await expect(page.locator('.memory-card')).toHaveCount(12)
+    await expectCleanPublicText(page)
+  })
+})

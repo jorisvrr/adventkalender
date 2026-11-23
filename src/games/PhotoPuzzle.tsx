@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { PhotoPuzzleDay } from '../content/days'
 import { isSolved, isValidOrder, shuffledOrder, swap } from '../lib/puzzle'
 import type { GameProps } from './types'
+import { useAspect } from './CropImage'
 
 export interface PhotoPuzzleState {
   order: number[]
@@ -18,6 +19,9 @@ export function PhotoPuzzle({ config, saved, onState, onComplete }: GameProps<Ph
   const [selected, setSelected] = useState<number | null>(null)
   const [preview, setPreview] = useState(false)
   const previewTimer = useRef<number>(undefined)
+  // De puzzel volgt de beeldverhouding van de foto: 3×3 tegels van dezelfde verhouding,
+  // dus niets wordt uitgerekt of afgesneden.
+  const aspect = useAspect(config.image)
 
   // Eerste keer: de geschudde indeling meteen bewaren, zodat verversen dezelfde puzzel geeft.
   useEffect(() => {
@@ -59,7 +63,7 @@ export function PhotoPuzzle({ config, saved, onState, onComplete }: GameProps<Ph
     <div className="puzzle">
       {!solved && <p className="lede">{config.intro}</p>}
 
-      <div className="puzzle-frame">
+      <div className="puzzle-frame" style={{ '--ar': aspect } as React.CSSProperties}>
         {solved ? (
           <figure className={`puzzle-done ${justSolved ? 'is-new' : ''}`} data-testid="puzzel-klaar">
             <img src={config.image} alt={config.imageAlt} />

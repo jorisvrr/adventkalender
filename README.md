@@ -30,7 +30,7 @@ De modus volgt uit de route: publieke routes lezen nooit iets van een ontwikkela
 | Wat | Waar |
 | --- | --- |
 | Teksten, titels, beloning, hints, rooster dag 2, ontgrendeldata | `src/content/days.ts` |
-| Foto voor dag 3 | `DAG_3_FOTO` bovenaan `src/content/days.ts`; zet het bestand in `public/images/` (vierkant werkt het mooist) |
+| Foto's | `public/images/advent/` (originelen, ongewijzigd). Uitsneden (focuspunt + zoom) en antwoorden per dag in `src/content/days.ts` |
 | Jaar, tijdzone, codes, landingsteksten | `src/content/settings.ts` |
 
 Dag 4 t/m 24 toevoegen: zet een nieuw object in de `days`-lijst. Bestaande voortgang blijft staan. Dagen die er niet in staan blijven publiek gesloten; in `/#/dev` zie je welke nog leeg zijn. Een nieuw soort activiteit maak je in `src/games/` en koppel je in `src/games/registry.tsx`.
@@ -40,6 +40,6 @@ Pas je het woordzoekerrooster aan, draai dan `npm test`: die controleert dat elk
 ## Structuur
 
 - `src/content/`: alle inhoud en instellingen
-- `src/games/`: kraskaart, woordzoeker, fotopuzzel (kennen de opslag niet)
+- `src/games/`: kraskaart, woordzoeker, fotopuzzel, memory, close-up, cadeau (kennen de opslag niet)
 - `src/lib/`: datumlogica, voortgangsopslag (`vriendin` en `test` apart), sessie, spellogica
 - `src/components/`: landing, kalender, dagweergave, ontwikkelaarspaneel

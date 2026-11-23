@@ -9,7 +9,19 @@ export function missingDays(): number[] {
 
 /** Alle afbeeldingen waar de inhoud naar verwijst, met hun dag. */
 export function contentImages(): { day: number; src: string }[] {
-  return days.flatMap((d) => (d.type === 'fotopuzzel' ? [{ day: d.day, src: d.image }] : []))
+  return days.flatMap((d) => {
+    switch (d.type) {
+      case 'fotopuzzel':
+      case 'cadeau':
+        return [{ day: d.day, src: d.image }]
+      case 'memory':
+        return d.cards.map((c) => ({ day: d.day, src: c.image }))
+      case 'closeup':
+        return d.rounds.map((r) => ({ day: d.day, src: r.image }))
+      default:
+        return []
+    }
+  })
 }
 
 export function contentWarnings(): { day: number; text: string }[] {
